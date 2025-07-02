@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Developer Report</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    .header {
+      background-color: #6f42c1;
+      color: white;
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      margin-bottom: 2rem;
+    }
+    .table thead {
+      background-color: #e9d8fd;
+      color: #4a148c;
+    }
+    .btn-back {
+      background-color: #6f42c1;
+      color: white;
+    }
+    .btn-back:hover {
+      background-color: #5a36a0;
+    }
+    .star {
+      color: gold;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body onload="fetchDeveloperReports()">
+
+<div class="container mt-4">
+  <div class="header text-center">
+    <h2>👨‍💻 Developer Task Report</h2>
+    <p class="mb-0">Overview of task assignments and performance</p>
+  </div>
+
+  <!-- Report Table -->
+  <div class="table-responsive">
+    <table class="table table-bordered align-middle">
+      <thead class="text-center">
+        <tr>
+          <th>#</th>
+          <th>Developer Name</th>
+          <th>Task Title</th>
+          <th>Status</th>
+          <th>Deadline</th>
+          <th>Remarks</th>
+          <th>Rating</th>
+        </tr>
+      </thead>
+      <tbody id="reportTableBody">
+        <!-- Data will be inserted dynamically -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Back Button -->
+  <div class="text-center mt-4">
+    <a href="/login" class="btn btn-back">
+      ⬅️ Login
+    </a>
+  </div>
+</div>
+
+<script>
+  async function fetchDeveloperReports() {
+    try {
+      const response = await fetch('/api/tasks/developers');
+; // Adjust if needed
+      const data = await response.json();
+
+      const tbody = document.getElementById('reportTableBody');
+      tbody.innerHTML = '';
+
+      data.forEach((dev, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${index + 1}</td>
+          <td>${dev.name}</td>
+          <td>${dev.taskTitle}</td>
+          <td>${getStatusBadge(dev.status)}</td>
+          <td>${dev.deadline}</td>
+          <td>${dev.remarks || '-'}</td>
+          <td class="text-center">${renderStars(dev.rating || 0)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    } catch (err) {
+      console.error('Error:', err);
+      document.getElementById('reportTableBody').innerHTML = `
+        <tr><td colspan="7" class="text-center text-danger">Failed to load data.</td></tr>
+      `;
+    }
+  }
+
+  function getStatusBadge(status) {
+    const s = status.toLowerCase();
+    if (s === 'completed') return '<span class="badge bg-success">Completed</span>';
+    if (s === 'in progress') return '<span class="badge bg-warning text-dark">In Progress</span>';
+    if (s === 'pending') return '<span class="badge bg-danger">Pending</span>';
+    return `<span class="badge bg-secondary">${status}</span>`;
+  }
+
+  function renderStars(rating) {
+    let stars = '';
+    for (let i = 1; i <= 5; i++) {
+      stars += i <= rating
+        ? '<i class="bi bi-star-fill star"></i>'
+        : '<i class="bi bi-star star text-muted"></i>';
+    }
+    return stars;
+  }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

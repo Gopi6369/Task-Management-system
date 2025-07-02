@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Portal</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(to right, #e9d8fd, #f3e8ff);
+      min-height: 100vh;
+    }
+    .container { margin-top: 40px; }
+    .card {
+      border: none;
+      border-radius: 1rem;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .card:hover {
+      transform: scale(1.01);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+    .card-header.assign {
+      background: linear-gradient(to right, #9f7aea, #805ad5);
+      color: #fff;
+    }
+    .card-header.tasks {
+      background: linear-gradient(to right, #7f5af0, #6b46c1);
+      color: #fff;
+    }
+    .btn-outline-primary {
+      background-color: #6f42c1;
+      color: #fff;
+      border: none;
+    }
+    .btn-outline-primary:hover {
+      background-color: #5a36a0;
+    }
+    .btn-outline-danger {
+      border-color: #d9534f;
+      color: #d9534f;
+    }
+    .btn-outline-danger:hover {
+      background-color: #d9534f;
+      color: white;
+    }
+    h2.text-center {
+      color: #5a36a0;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2 class="text-center mb-4" style="color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+    🛠️ Admin Task Assignment Panel
+  </h2>
+
+  <!-- Assign Task Form -->
+  <div class="card mb-4">
+    <div class="card-header assign">Assign Task to Employee</div>
+    <div class="card-body">
+      <form id="taskForm">
+        <div class="mb-3">
+          <label class="form-label">Task Title</label>
+          <input type="text" class="form-control" id="title" placeholder="Enter task title" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Assign To</label>
+          <select class="form-select" id="employeeDropdown" required>
+            <option disabled selected>Loading employees...</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Deadline</label>
+          <input type="date" class="form-control" id="deadline" required>
+        </div>
+        <button type="submit" class="btn btn-outline-primary w-100">📤 Assign Task</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Task Summary -->
+  <div class="card mb-4 p-3 bg-white">
+    <h5 class="text-primary mb-3">📊 Task Summary</h5>
+    <div class="row text-center mb-3">
+      <div class="col"><strong>Total Tasks:</strong><div id="totalTasks">0</div></div>
+      <div class="col"><strong>In Progress:</strong><div id="inProgressTasks">0</div></div>
+      <div class="col"><strong>Completed:</strong><div id="completedTasks">0</div></div>
+    </div>
+    <div class="mb-2">
+      <label for="completionBar" class="form-label">Completion Progress</label>
+      <div class="progress" style="height: 20px;">
+        <div id="completionBar" class="progress-bar bg-success" role="progressbar" style="width: 0%;">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- All Assigned Tasks -->
+  <div class="card mb-4">
+    <div class="card-header tasks">📋 All Assigned Tasks</div>
+    <div class="card-body" id="allTasks">
+      <p class="text-muted">Loading tasks...</p>
+    </div>
+  </div>
+
+  <!-- Last Reassigned Task -->
+  <div class="card mb-4">
+    <div class="card-header tasks">🔁 Last Reassigned Task</div>
+    <div class="card-body" id="lastReassignedTask">
+      <p class="text-muted">Loading last reassigned task...</p>
+    </div>
+  </div>
+
+  <!-- Employee Feedback -->
+  <div class="card mb-4">
+    <div class="card-header feedback">💬 Employee Feedback</div>
+    <div class="card-body" id="feedbackBox">
+      <p class="text-muted">Loading feedback...</p>
+    </div>
+  </div>
+
+  <!-- Logout -->
+  <div class="text-center mb-4">
+    <a href="/login" class="btn btn-outline-danger">🔙 Logout</a>
+  </div>
+</div>
+
+<!-- Script -->
+<script>
+  async function loadEmployees() {
+    const res = await fetch("/api/employees");
+    const employees = await res.json();
+    const dropdown = document.getElementById("employeeDropdown");
+    dropdown.innerHTML = '<option disabled selected>Select Employee</option>';
+    employees.forEach(emp => {
+      const option = document.createElement("option");
+      option.value = emp.name;
+      option.textContent = emp.name;
+      dropdown.appendChild(option);
+    });
+  }
+
+  async function loadTasks() {
+    const res = await fetch("/api/tasks");
+    const tasks = await res.json();
+    const container = document.getElementById("allTasks");
+
+    if (!tasks.length) {
+      container.innerHTML = '<p class="text-muted">No tasks assigned yet.</p>';
+      return;
+    }
+
+    container.innerHTML = "<div class='row row-cols-1 row-cols-md-2 g-3'>";
+    tasks.forEach(task => {
+      container.innerHTML += `
+        <div class="col">
+          <div class="card h-100 border-start border-4 border-primary shadow-sm">
+            <div class="card-body">
+              <p class="card-text"><strong>📄 Task Title:</strong> ${task.title}</p>
+              <p class="card-text"><strong>👤 Assigned To:</strong> ${task.employee}</p>
+              <p class="card-text"><strong>⏰ Deadline:</strong> ${task.date}</p>
+              <p class="card-text"><strong>📌 Status:</strong> ${task.status || 'Not Started'}</p>
+              <p class="card-text"><strong>⭐ Rating:</strong> ${task.rating || 'Not Rated'}</p>
+              <button class="btn btn-outline-danger mt-2 w-100" onclick="deleteTask(${task.id})">🗑 Delete</button>
+            </div>
+          </div>
+        </div>`;
+    });
+    container.innerHTML += "</div>";
+  }
+
+  async function loadFeedback() {
+    const res = await fetch("/api/feedback");
+    const feedbacks = await res.json();
+    const box = document.getElementById("feedbackBox");
+
+    if (!feedbacks.length) {
+      box.innerHTML = '<p class="text-muted">No feedback submitted yet.</p>';
+      return;
+    }
+
+    box.innerHTML = "";
+    feedbacks.forEach(fb => {
+      box.innerHTML += `
+        <div class="border rounded p-3 mb-2 bg-light shadow-sm">
+          <strong>👤 ${fb.employee}:</strong> <span>${fb.message}</span><br>
+          <strong>⭐ Rating:</strong> ${fb.rating || 'Not Rated'}
+        </div>`;
+    });
+  }
+
+  async function loadLastReassignedTask() {
+    const res = await fetch("/api/tasks");
+    const tasks = await res.json();
+    const reassigned = tasks.filter(t => t.reassignedFrom && t.reassignedTo)
+                            .sort((a, b) => new Date(b.date) - new Date(a.date));
+    const box = document.getElementById("lastReassignedTask");
+
+    if (!reassigned.length) {
+      box.innerHTML = "<p class='text-muted'>No reassigned task found.</p>";
+      return;
+    }
+
+    const task = reassigned[0];
+    box.innerHTML = `
+      <div class="border p-3 bg-light rounded shadow-sm">
+        <strong>📄 ${task.title}</strong><br>
+        🔄 <b>${task.reassignedFrom}</b> ➡️ <b>${task.reassignedTo}</b><br>
+        ⏰ Deadline: ${task.deadline}<br>
+        📌 Status: ${task.status || 'Not Started'}<br>
+        📝 Feedback: ${task.feedback || 'N/A'}
+      </div>`;
+  }
+
+  document.getElementById("taskForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const task = {
+      title: document.getElementById("title").value,
+      employee: document.getElementById("employeeDropdown").value,
+      deadline: document.getElementById("deadline").value,
+      assignedto: "Admin",
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    const res = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(task)
+    });
+
+    if (res.ok) {
+      alert("✅ Task assigned.");
+      this.reset();
+      loadTasks();
+    } else {
+      alert("❌ Failed to assign task.");
+    }
+  });
+
+  async function deleteTask(id) {
+    if (confirm("Are you sure you want to delete this task?")) {
+      const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        alert("🗑 Task deleted.");
+        loadTasks();
+      } else {
+        alert("❌ Failed to delete task.");
+      }
+    }
+  }
+
+  window.onload = () => {
+    loadEmployees();
+    loadTasks();
+    loadFeedback();
+    loadLastReassignedTask();
+  };
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+

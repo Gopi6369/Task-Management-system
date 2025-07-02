@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Developer Task Panel</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8f9fa; }
+    .header { background-color: #6f42c1; color: white; border-radius: 0.5rem; }
+    .card-header { background-color: #e9d8fd; font-weight: 600; }
+    .btn-primary { background-color: #6f42c1; border: none; }
+    .btn-primary:hover { background-color: #5a36a0; }
+    .status-msg { color: #6f42c1; font-weight: 500; }
+  </style>
+</head>
+<body onload="loadUserAndTasks()">
+<div class="container mt-4">
+  <h2 class="text-center header py-3">👷 Developer Task Panel</h2>
+  <div class="card mb-4 p-3 bg-white">
+    <h5 class="text-primary">Welcome, <span id="employeeName"></span></h5>
+    <p class="text-muted">Below are your assigned tasks with status and deadline.</p>
+    <div id="messageBox" class="status-msg mt-2"></div>
+  </div>
+
+  <div class="card mb-4 p-3 bg-white">
+    <h5 class="text-primary mb-3">📊 Task Summary</h5>
+    <div class="row text-center mb-3">
+      <div class="col"><strong>Total Tasks:</strong><div id="totalTasks">0</div></div>
+      <div class="col"><strong>In Progress:</strong><div id="inProgressTasks">0</div></div>
+      <div class="col"><strong>Completed:</strong><div id="completedTasks">0</div></div>
+    </div>
+    <div class="mb-2">
+      <label for="completionBar" class="form-label">Completion Progress</label>
+      <div class="progress" style="height: 20px;">
+        <div id="completionBar" class="progress-bar bg-success" role="progressbar" style="width: 0%;">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">📋 Your Assigned Tasks</div>
+    <div class="card-body" id="employeeTasks"></div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">📋 Reassigned Tasks</div>
+    <div class="card-body" id="reassignedTasks"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header bg-light">✏️ Provide Feedback</div>
+    <div class="card-body">
+      <form id="feedbackForm">
+        <div class="mb-3">
+          <label for="taskSelect" class="form-label">Select Task</label>
+          <select class="form-select" id="taskSelect" required><option value="">-- Choose your task --</option></select>
+        </div>
+        <div class="mb-3">
+          <label for="reassignDropdown" class="form-label">Reassign the Task To</label>
+          <select class="form-select" id="reassignDropdown"><option value="">-- Reassign To --</option></select>
+        </div>
+        <div class="mb-3">
+          <label for="statusSelect" class="form-label">Status</label>
+          <select class="form-select" id="statusSelect">
+            <option value="Not Started">Not Started</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Finished</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="message" class="form-label">Feedback Message</label>
+          <textarea class="form-control" id="message" rows="6" placeholder="Write a message to admin..." required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">📨 Submit Feedback</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function loadUserAndTasks() {
+    const userRes = await fetch("/api/current-user");
+    const user = await userRes.json();
+    document.getElementById("employeeName").innerText = user.name;
+
+    // Fetch tasks assigned to this user (including reassigned ones)
+    const tasks = await fetch("/api/tasks/mytasks").then(res => res.json());
+
+    // Update progress summary
+    document.getElementById("totalTasks").innerText = tasks.length;
+    const completed = tasks.filter(t => t.status === 'Completed').length;
+    const inProgress = tasks.filter(t => t.status === 'In Progress').length;
+    document.getElementById("inProgressTasks").innerText = inProgress;
+    document.getElementById("completedTasks").innerText = completed;
+    let percent = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
+    document.getElementById("completionBar").style.width = percent + "%";
+    document.getElementById("completionBar").innerText = percent + "%";
+
+    // Render tasks in the employeeTasks section
+    const taskContainer = document.getElementById("employeeTasks");
+    taskContainer.innerHTML = tasks.length ? "" : "<p class='text-muted'>No tasks assigned.</p>";
+    tasks.forEach(task => {
+      taskContainer.innerHTML += `
+        <div class="border p-3 mb-2 bg-light rounded shadow-sm">
+          <strong>📄 ${task.title}</strong><br>
+          <span>⏰ Deadline: ${task.deadline}</span><br>
+          <span>📌 Status: ${task.status || 'Not Started'}</span>
+        </div>`;
+    });
+
+    // Populate the feedback form dropdown
+    const dropdown = document.getElementById("taskSelect");
+    dropdown.innerHTML = '<option value="">-- Choose your task --</option>';
+    tasks.forEach(task => {
+      dropdown.innerHTML += `<option value="${task.id}">${task.title}</option>`;
+    });
+
+    // Populate the reassign dropdown with employees
+    const reassignDropdown = document.getElementById("reassignDropdown");
+    try {
+      const res = await fetch("/api/employees");
+      const employees = await res.json();
+      reassignDropdown.innerHTML = '<option value="">-- Reassign To --</option>';
+      employees.forEach(emp => {
+        reassignDropdown.innerHTML += `<option value="${emp.name}">${emp.name}</option>`;
+      });
+    } catch (err) {
+      console.error("Failed to load employees", err);
+    }
+  }
+
+  // Feedback + reassignment form submission
+  document.getElementById("feedbackForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const taskId = document.getElementById("taskSelect").value;
+    const reassignedTo = document.getElementById("reassignDropdown").value;
+    const status = document.getElementById("statusSelect").value;
+    const message = document.getElementById("message").value;
+
+    const body = { reassignedTo, status, message };
+
+    const res = await fetch(`/api/tasks/reassign/${taskId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    if (res.ok) {
+      alert("✅ Feedback submitted and reassigned.");
+      loadUserAndTasks();
+    }
+  });
+
+  // Optional status update function
+  async function updateTaskStatus(taskId, newStatus) {
+    try {
+      const res = await fetch(`/api/tasks/update-status/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (res.ok) {
+        console.log("✅ Status updated");
+        loadUserAndTasks();
+      } else {
+        alert("❌ Failed to update status");
+      }
+    } catch (err) {
+      console.error("❌ Error updating task status", err);
+    }
+  }
+</script>
+
+</body>
+</html>
